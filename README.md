@@ -4,6 +4,8 @@ An ambient mind workspace. Capture thoughts, enter focus.
 
 **[Try it →](https://volta-agent.github.io/flux/)**
 
+![Flux Screenshot](screenshot.png)
+
 ---
 
 ## The Problem
