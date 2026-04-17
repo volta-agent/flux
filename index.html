@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0a0a0b;
+            --fg: #fafafa;
+            --muted: #525252;
+            --accent: #f97316;
+            --accent-dim: rgba(249, 115, 22, 0.15);
+            --card: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        @font-face {
+            font-family: 'System';
+            src: local('-apple-system'), local('BlinkMacSystemFont'), local('Segoe UI'), local('Roboto');
+        }
+
+        body {
+            font-family: 'System', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background */
+        .ambient {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(249, 115, 22, 0.08), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(34, 197, 94, 0.05), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 64px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent) 0%, #fb923c 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2.5;
+        }
+
+        /* Time */
+        .time-block {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .clock {
+            font-size: 72px;
+            font-weight: 200;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .date {
+            font-size: 14px;
+            color: var(--muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* The Input */
+        .capture-zone {
+            margin-bottom: 48px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .input-wrapper:focus-within {
+            border-color: rgba(249, 115, 22, 0.3);
+            box-shadow: 0 0 0 4px var(--accent-dim);
+        }
+
+        .capture-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 20px 24px;
+            font-size: 16px;
+            color: var(--fg);
+            font-family: inherit;
+        }
+
+        .capture-input::placeholder {
+            color: var(--muted);
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 16px 16px;
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: all 0.3s ease;
+        }
+
+        .input-wrapper:focus-within .input-actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .action-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        /* Grid */
+        .grid-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .grid-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+        }
+
+        .grid-count {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .items-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .item:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .item-type {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .item-type.task {
+            background: rgba(34, 197, 94, 0.15);
+        }
+
+        .item-type.idea {
+            background: rgba(249, 115, 22, 0.15);
+        }
+
+        .item-type.note {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-text {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .item-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .item-status {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .item:hover .item-status {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .item.completed .item-status {
+            background: #22c55e;
+            border-color: #22c55e;
+        }
+
+        .item.completed .item-text {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        /* Empty state */
+        .empty {
+            text-align: center;
+            padding: 64px 24px;
+            color: var(--muted);
+        }
+
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            opacity: 0.5;
+        }
+
+        .empty-text {
+            font-size: 14px;
+        }
+
+        /* Focus mode */
+        .focus-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+        }
+
+        .focus-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .focus-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .focus-close:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .focus-content {
+            text-align: center;
+            max-width: 500px;
+            padding: 24px;
+        }
+
+        .focus-task {
+            font-size: 28px;
+            font-weight: 300;
+            line-height: 1.4;
+            margin-bottom: 48px;
+        }
+
+        .focus-progress {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .focus-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .focus-dot.active {
+            background: var(--accent);
+        }
+
+        .focus-dot.done {
+            background: #22c55e;
+        }
+
+        .focus-complete {
+            margin-top: 48px;
+            padding: 16px 32px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .focus-complete:hover {
+            transform: scale(1.02);
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .footer-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .footer-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .footer-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--fg);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 200;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .clock {
+                font-size: 56px;
+            }
+            
+            .container {
+                padding: 32px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient"></div>
+    
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                </div>
+                <span>Flux</span>
+            </div>
+        </header>
+
+        <div class="time-block">
+            <div class="clock" id="clock">09:41</div>
+            <div class="date" id="date">Friday, April 17</div>
+        </div>
+
+        <div class="capture-zone">
+            <div class="input-wrapper">
+                <input 
+                    type="text" 
+                    class="capture-input" 
+                    id="captureInput"
+                    placeholder="What's on your mind?"
+                    autocomplete="off"
+                >
+                <div class="input-actions">
+                    <button class="action-btn" data-type="task">✓ Task</button>
+                    <button class="action-btn" data-type="idea">💡 Idea</button>
+                    <button class="action-btn" data-type="note">📝 Note</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-header">
+            <span class="grid-title">Your Mind</span>
+            <span class="grid-count" id="itemCount">0 items</span>
+        </div>
+
+        <div class="items-grid" id="itemsGrid">
+            <div class="empty" id="emptyState">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                    <line x1="9" y1="9" x2="9.01" y2="9"/>
+                    <line x1="15" y1="9" x2="15.01" y2="9"/>
+                </svg>
+                <p class="empty-text">Your mind is clear. Capture a thought above.</p>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <button class="footer-btn" id="focusBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v4m0 12v4m10-10h-4M6 12H2"/>
+                </svg>
+                Focus Mode
+            </button>
+            <button class="footer-btn" id="clearBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                Clear Completed
+            </button>
+        </footer>
+    </div>
+
+    <!-- Focus Mode Overlay -->
+    <div class="focus-overlay" id="focusOverlay">
+        <button class="focus-close" id="focusClose">×</button>
+        <div class="focus-content">
+            <p class="focus-task" id="focusTask">Loading...</p>
+            <div class="focus-progress" id="focusProgress"></div>
+            <button class="focus-complete" id="focusComplete">Complete</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Flux - Ambient Mind Workspace
+        // Zero dependencies. Pure focus.
+
+        const $ = id => document.getElementById(id);
+        const storage = {
+            get: () => JSON.parse(localStorage.getItem('flux-items') || '[]'),
+            set: (items) => localStorage.setItem('flux-items', JSON.stringify(items))
+        };
+
+        // State
+        let items = storage.get();
+        let focusIndex = 0;
+
+        // Elements
+        const clockEl = $('clock');
+        const dateEl = $('date');
+        const inputEl = $('captureInput');
+        const gridEl = $('itemsGrid');
+        const countEl = $('itemCount');
+        const emptyEl = $('emptyState');
+        const focusOverlay = $('focusOverlay');
+        const focusTask = $('focusTask');
+        const focusProgress = $('focusProgress');
+        const toastEl = $('toast');
+
+        // Time
+        function updateTime() {
+            const now = new Date();
+            clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+            dateEl.textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Render
+        function render() {
+            const active = items.filter(i => !i.completed);
+            const completed = items.filter(i => i.completed);
+            const sorted = [...active, ...completed];
+
+            countEl.textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+
+            if (items.length === 0) {
+                emptyEl.style.display = 'block';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            
+            // Remove existing items (keep empty state)
+            gridEl.querySelectorAll('.item').forEach(el => el.remove());
+
+            sorted.forEach((item, idx) => {
+                const el = document.createElement('div');
+                el.className = `item ${item.completed ? 'completed' : ''}`;
+                el.style.animationDelay = `${idx * 50}ms`;
+                el.innerHTML = `
+                    <div class="item-type ${item.type}">${getTypeIcon(item.type)}</div>
+                    <div class="item-content">
+                        <div class="item-text">${escapeHtml(item.text)}</div>
+                        <div class="item-meta">
+                            <span>${timeAgo(item.created)}</span>
+                        </div>
+                    </div>
+                    <div class="item-status"></div>
+                `;
+                el.addEventListener('click', () => toggleComplete(item.id));
+                gridEl.appendChild(el);
+            });
+        }
+
+        function getTypeIcon(type) {
+            const icons = { task: '✓', idea: '💡', note: '📝' };
+            return icons[type] || '📝';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function timeAgo(ts) {
+            const secs = Math.floor((Date.now() - ts) / 1000);
+            if (secs < 60) return 'Just now';
+            if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+            if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+            return `${Math.floor(secs / 86400)}d ago`;
+        }
+
+        // Actions
+        function addItem(text, type) {
+            if (!text.trim()) return;
+            items.unshift({
+                id: Date.now(),
+                text: text.trim(),
+                type,
+                completed: false,
+                created: Date.now()
+            });
+            storage.set(items);
+            render();
+            inputEl.value = '';
+            toast('Captured');
+        }
+
+        function toggleComplete(id) {
+            const item = items.find(i => i.id === id);
+            if (item) {
+                item.completed = !item.completed;
+                storage.set(items);
+                render();
+            }
+        }
+
+        function clearCompleted() {
+            const before = items.length;
+            items = items.filter(i => !i.completed);
+            if (items.length !== before) {
+                storage.set(items);
+                render();
+                toast('Cleared');
+            }
+        }
+
+        // Focus Mode
+        function enterFocus() {
+            const tasks = items.filter(i => !i.completed && i.type === 'task');
+            if (tasks.length === 0) {
+                toast('No tasks to focus on');
+                return;
+            }
+
+            focusIndex = 0;
+            focusOverlay.classList.add('active');
+            renderFocus(tasks);
+        }
+
+        function renderFocus(tasks) {
+            focusTask.textContent = tasks[focusIndex].text;
+            focusProgress.innerHTML = tasks.map((_, i) => `
+                <div class="focus-dot ${i < focusIndex ? 'done' : i === focusIndex ? 'active' : ''}"></div>
+            `).join('');
+        }
+
+        function exitFocus() {
+            focusOverlay.classList.remove('active');
+        }
+
+        function completeFocus() {
+            const tasks = items.filter(i => !i.completed && i.type === 'task');
+            if (focusIndex < tasks.length) {
+                tasks[focusIndex].completed = true;
+                storage.set(items);
+                focusIndex++;
+                
+                const remaining = items.filter(i => !i.completed && i.type === 'task');
+                if (remaining.length === 0 || focusIndex >= tasks.length) {
+                    toast('All tasks complete');
+                    exitFocus();
+                    render();
+                } else {
+                    renderFocus(remaining);
+                }
+            }
+        }
+
+        // Toast
+        function toast(msg) {
+            toastEl.textContent = msg;
+            toastEl.classList.add('show');
+            setTimeout(() => toastEl.classList.remove('show'), 2000);
+        }
+
+        // Event Listeners
+        inputEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                addItem(inputEl.value, 'note');
+            }
+        });
+
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                addItem(inputEl.value, btn.dataset.type);
+            });
+        });
+
+        $('focusBtn').addEventListener('click', enterFocus);
+        $('clearBtn').addEventListener('click', clearCompleted);
+        $('focusClose').addEventListener('click', exitFocus);
+        $('focusComplete').addEventListener('click', completeFocus);
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && focusOverlay.classList.contains('active')) {
+                exitFocus();
+            }
+        });
+
+        // Init
+        render();
+
+        // Keyboard shortcut hints
+        console.log('Flux ready. Press Enter to capture, click items to toggle complete.');
+    </script>
+</body>
+</html>
